@@ -1,14 +1,54 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #0a4f3b; /* Deep green */
-  --color-secondary: #0f172a; /* Navy */
-  --color-accent: #14b8a6; /* Teal */
+  --color-forest-950: #071711;
+  --color-forest-900: #0d281e;
+  --color-forest-800: #163d2f;
+  --color-forest-700: #1f5643;
+  --color-forest-600: #2a735a;
+  --color-forest-500: #359273;
+  --color-forest-400: #48b590;
+  --color-lime-accent: #84cc16;
+  --color-emerald-accent: #10b981;
 }
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  color-scheme: light dark;
+}
+
 body {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  @apply bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500/20 selection:text-emerald-900 dark:bg-[#0c1310] dark:text-slate-100 dark:selection:text-emerald-200;
+}
+
+/* Subtle agricultural & circuit background pattern */
+.bg-circuit-pattern {
+  background-image: radial-gradient(rgba(16, 185, 129, 0.08) 1px, transparent 1px), radial-gradient(rgba(34, 197, 94, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
+
+.dark .bg-circuit-pattern {
+  background-image: radial-gradient(rgba(16, 185, 129, 0.12) 1px, transparent 1px), radial-gradient(rgba(52, 211, 153, 0.06) 1px, transparent 1px);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.5);
 }

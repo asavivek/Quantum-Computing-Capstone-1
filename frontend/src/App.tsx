@@ -6,16 +6,18 @@ import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Predict from './pages/Predict';
-import PredictionResult from './pages/PredictionResult';
+import HistoryPage from './pages/History';
 import QuantumInsights from './pages/QuantumInsights';
-import About from './pages/About';
+import ModelComparison from './pages/ModelComparison';
+import AgronomyInsights from './pages/AgronomyInsights';
+import LearnQuantum from './pages/LearnQuantum';
 
 export const AuthContext = createContext<any>(null);
 export const ThemeContext = createContext<any>(null);
 
 function App() {
   const [user, setUser] = useState<any>(null);
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,23 +41,34 @@ function App() {
     fetchUser();
   }, []);
 
-  if (loading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0c1310] text-emerald-800 dark:text-emerald-400 gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+        <span className="text-xs font-semibold uppercase tracking-wider">Loading QuantumYield AI...</span>
+      </div>
+    );
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
       <AuthContext.Provider value={{ user, setUser }}>
         <Router>
           <Routes>
-            <Route path="/" element={!user ? <Landing /> : <Navigate to="/dashboard" />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/auth" element={!user ? <Auth /> : <Navigate to="/dashboard" />} />
             
             <Route path="/" element={user ? <Layout /> : <Navigate to="/auth" />}>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="predict" element={<Predict />} />
-              <Route path="predictions/:id" element={<PredictionResult />} />
+              <Route path="history" element={<HistoryPage />} />
               <Route path="quantum" element={<QuantumInsights />} />
-              <Route path="about" element={<About />} />
+              <Route path="compare" element={<ModelComparison />} />
+              <Route path="insights" element={<AgronomyInsights />} />
+              <Route path="learn" element={<LearnQuantum />} />
             </Route>
+
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Router>
       </AuthContext.Provider>
