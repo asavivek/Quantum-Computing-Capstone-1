@@ -15,6 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import api from '../services/api';
+import { getLocalHistory, deleteLocalPrediction } from '../services/predictionEngine';
 
 export default function HistoryPage() {
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -33,7 +34,11 @@ export default function HistoryPage() {
       const { data } = await api.get(url);
       setPredictions(data);
     } catch (e) {
-      console.error('Failed to load prediction history', e);
+      console.warn('Backend unavailable, loading local history repository', e);
+      let localList = getLocalHistory();
+      if (selectedCrop) localList = localList.filter(p => p.crop.toLowerCase() === selectedCrop.toLowerCase());
+      if (selectedModel) localList = localList.filter(p => p.selected_model.toLowerCase() === selectedModel.toLowerCase());
+      setPredictions(localList);
     } finally {
       setLoading(false);
     }
@@ -47,11 +52,83 @@ export default function HistoryPage() {
     if (!window.confirm('Are you sure you want to delete this prediction record?')) return;
     try {
       await api.delete(`/predictions/${id}`);
-      setPredictions(prev => prev.filter(p => p.id !== id));
-      if (activeModal?.id === id) setActiveModal(null);
     } catch (e) {
-      alert('Failed to delete prediction record.');
+      console.warn('Deleting from local repository', e);
     }
+    deleteLocalPrediction(id);
+    setPredictions(prev => prev.filter(p => p.id !== id));
+    if (activeModal?.id === id) setActiveModal(null);
+  };
+
+  const handleExportCsv = () => {
+    const list = predictions.length > 0 ? predictions : getLocalHistory();
+    const headers = ['ID', 'Crop', 'Region', 'Season', 'Model', 'Predicted Yield (t/ha)', 'Total Farm Tons', 'Date'];
+    const rows = list.map(p => [
+      p.id,
+      p.crop,
+      p.region,
+      p.season,
+      p.selected_model,
+      p.predicted_yield,
+      p.total_farm_yield_tons,
+      p.created_at
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(val => `"${val}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `quantumyield_predictions_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrintModal = (record: any) => {
+    if (!record) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QuantumYield AI Archive Report - ${record.crop}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 36px; color: #1e293b; line-height: 1.5; }
+          .header { border-bottom: 2px solid #059669; padding-bottom: 16px; margin-bottom: 20px; }
+          h1 { color: #065f46; font-size: 24px; margin: 0 0 4px 0; }
+          .tagline { color: #64748b; font-size: 13px; margin: 0; }
+          .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin-bottom: 20px; background: #f8fafc; }
+          .yield-val { font-size: 38px; font-weight: 800; color: #047857; }
+          table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 12px; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+          th { background: #f1f5f9; font-weight: 600; color: #334155; }
+          .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 600; }
+          .footer { font-size: 11px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>QuantumYield AI — Archived Prediction Report</h1>
+          <p class="tagline">Official Agricultural & Quantum ML Capstone Archive</p>
+        </div>
+        <div class="card">
+          <span class="badge">${record.selected_model.toUpperCase()}</span>
+          <div class="yield-val">${record.predicted_yield} <span style="font-size:16px;">t/ha</span></div>
+          <p style="margin:4px 0 0; font-size:13px; color:#475569;">90% Prediction Interval: [${record.confidence_lower} — ${record.confidence_upper}] t/ha</p>
+          <p style="margin:4px 0 0; font-size:13px; font-weight:600; color:#065f46;">Total Harvest: ${record.total_farm_yield_tons} metric tons (${record.area_hectares} ha)</p>
+          <p style="font-size:12px; color:#64748b;">Crop: <strong>${record.crop}</strong> | Region: <strong>${record.region}</strong> | Date: ${record.created_at}</p>
+        </div>
+        <div class="footer">QuantumYield AI • Academic Research Archive</div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 500);
   };
 
   const filteredPredictions = predictions.filter(p => {
@@ -85,12 +162,13 @@ export default function HistoryPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              href="http://localhost:8000/api/predictions/export/csv"
-              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-emerald-500 transition-colors"
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-emerald-500 transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="h-4 w-4" /> Export All to CSV
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -312,14 +390,13 @@ export default function HistoryPage() {
 
             {/* Actions */}
             <div className="flex gap-3 pt-3 border-t border-slate-100 dark:border-emerald-950/30">
-              <a
-                href={`http://localhost:8000/api/predictions/${activeModal.id}/export/pdf`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-700 py-2.5 text-xs font-semibold text-white hover:bg-emerald-600 transition-colors"
+              <button
+                type="button"
+                onClick={() => handlePrintModal(activeModal)}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-700 py-2.5 text-xs font-semibold text-white hover:bg-emerald-600 transition-colors cursor-pointer"
               >
-                <Download className="h-4 w-4" /> Download Official PDF Report
-              </a>
+                <Download className="h-4 w-4" /> Download / Print PDF Report
+              </button>
               <button
                 onClick={() => setActiveModal(null)}
                 className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:border-emerald-950 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-emerald-950/30 cursor-pointer"

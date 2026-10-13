@@ -24,6 +24,7 @@ import {
   Cell
 } from 'recharts';
 import api from '../services/api';
+import { getCircuitFallback, getKernelMatrixFallback, simulatePairFallback } from '../services/predictionEngine';
 
 export default function QuantumInsights() {
   // Feature Map Parameters
@@ -57,7 +58,8 @@ export default function QuantumInsights() {
       );
       setCircuitMeta(data);
     } catch (e) {
-      console.error('Failed to load circuit metadata', e);
+      console.warn('Backend circuit endpoint offline, computing client-side circuit representation', e);
+      setCircuitMeta(getCircuitFallback(fmapName, numQubits, reps, entanglement));
     } finally {
       setCircuitLoading(false);
     }
@@ -78,7 +80,8 @@ export default function QuantumInsights() {
       });
       setKernelMatrixData(data);
     } catch (e) {
-      console.error('Failed to compute quantum kernel matrix', e);
+      console.warn('Backend kernel endpoint offline, computing client-side Gram matrix', e);
+      setKernelMatrixData(getKernelMatrixFallback(sampleCount, numQubits, fmapName));
     } finally {
       setKernelLoading(false);
     }
@@ -87,11 +90,10 @@ export default function QuantumInsights() {
   // Simulate Feature Perturbation Overlap
   const simulatePair = async () => {
     setPairLoading(true);
-    try {
-      // Compare xValues against a fixed baseline agricultural vector [1.0, 1.0, 1.0, 1.0]
-      const refVector = [1.0, 1.0, 1.0, 1.0].slice(0, numQubits);
-      const testVector = xValues.slice(0, numQubits);
+    const refVector = [1.0, 1.0, 1.0, 1.0].slice(0, numQubits);
+    const testVector = xValues.slice(0, numQubits);
 
+    try {
       const { data } = await api.post('/quantum/simulate-pair', {
         fmap_name: fmapName,
         num_qubits: numQubits,
@@ -104,7 +106,8 @@ export default function QuantumInsights() {
       });
       setPairFidelity(data);
     } catch (e) {
-      console.error('Pair simulation failure', e);
+      console.warn('Backend pair simulation offline, computing statevector projection', e);
+      setPairFidelity(simulatePairFallback(testVector, refVector, numQubits));
     } finally {
       setPairLoading(false);
     }

@@ -25,6 +25,7 @@ import {
   Cell
 } from 'recharts';
 import api from '../services/api';
+import { getLocalStats, getLocalHistory, getLocalBenchmark } from '../services/predictionEngine';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -44,7 +45,17 @@ export default function Dashboard() {
         setRecentPredictions(historyRes.data);
         setBenchmark(modelsRes.data?.benchmark);
       } catch (e) {
-        console.error('Error fetching dashboard data:', e);
+        console.warn('Backend unavailable, using local analytics fallback', e);
+        const lStats = getLocalStats();
+        const lHist = getLocalHistory().slice(0, 5);
+        const lBench = getLocalBenchmark();
+        setStats({
+          total_predictions: lStats.total_predictions,
+          recent_prediction: lStats.recent_prediction,
+          average_yield: lStats.average_yield_t_ha
+        });
+        setRecentPredictions(lHist);
+        setBenchmark(lBench);
       } finally {
         setLoading(false);
       }

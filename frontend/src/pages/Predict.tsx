@@ -24,6 +24,7 @@ import {
   Cell
 } from 'recharts';
 import api from '../services/api';
+import { executeClientPrediction, savePredictionLocally } from '../services/predictionEngine';
 
 const PRESETS = [
   {
@@ -144,20 +145,125 @@ export default function Predict() {
     }));
   };
 
+  const [engineSource, setEngineSource] = useState<'backend' | 'client' | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
+      // 1. Attempt FastAPI backend execution
       const { data } = await api.post('/predictions/predict', formData);
       setPrediction(data);
+      savePredictionLocally(data);
+      setEngineSource('backend');
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Prediction failed. Please verify input ranges.';
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      // 2. Seamless client-side fallback for standalone cloud deployment (e.g. Vercel)
+      console.warn('Backend unavailable, running client-side agronomic and quantum prediction engine', err);
+      try {
+        const clientResult = executeClientPrediction(formData);
+        setPrediction(clientResult);
+        savePredictionLocally(clientResult);
+        setEngineSource('client');
+      } catch (clientErr: any) {
+        const msg = clientErr.message || 'Prediction failed. Please verify input ranges.';
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePrintReport = () => {
+    if (!prediction) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QuantumYield AI Prediction Report - ${prediction.crop}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 36px; color: #1e293b; line-height: 1.5; }
+          .header { border-bottom: 2px solid #059669; padding-bottom: 16px; margin-bottom: 20px; }
+          h1 { color: #065f46; font-size: 24px; margin: 0 0 4px 0; }
+          .tagline { color: #64748b; font-size: 13px; margin: 0; }
+          .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin-bottom: 20px; background: #f8fafc; }
+          .yield-val { font-size: 38px; font-weight: 800; color: #047857; }
+          table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 12px; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+          th { background: #f1f5f9; font-weight: 600; color: #334155; }
+          .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 600; }
+          .footer { font-size: 11px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>QuantumYield AI — Crop Yield Prediction & Agronomy Report</h1>
+          <p class="tagline">Department of Computer Science Engineering • Quantum Computing Capstone</p>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span class="badge">${prediction.selected_model.toUpperCase()}</span>
+              <div class="yield-val">${prediction.predicted_yield} <span style="font-size:16px;">t/ha</span></div>
+              <p style="margin:4px 0 0; font-size:13px; color:#475569;">90% Statistical Prediction Interval: [${prediction.confidence_lower} — ${prediction.confidence_upper}] t/ha</p>
+              <p style="margin:4px 0 0; font-size:13px; font-weight:600; color:#065f46;">Total Projected Harvest: ${prediction.total_farm_yield_tons} metric tons (${formData.area_hectares} ha)</p>
+            </div>
+            <div style="font-size:12px; color:#64748b; text-align:right;">
+              <p>Crop: <strong>${prediction.crop}</strong></p>
+              <p>Region: <strong>${prediction.region}</strong></p>
+              <p>Season: <strong>${prediction.season}</strong></p>
+              <p>Generated: ${prediction.created_at}</p>
+            </div>
+          </div>
+        </div>
+
+        <h3>Field & Climate Input Parameters</h3>
+        <table>
+          <tr><th>Soil pH</th><td>${formData.soil_ph}</td><th>Temperature</th><td>${formData.temperature} °C</td></tr>
+          <tr><th>Nitrogen (N)</th><td>${formData.soil_nitrogen} kg/ha</td><th>Rainfall</th><td>${formData.rainfall} mm</td></tr>
+          <tr><th>Phosphorus (P)</th><td>${formData.soil_phosphorus} kg/ha</td><th>Humidity</th><td>${formData.humidity} %</td></tr>
+          <tr><th>Potassium (K)</th><td>${formData.soil_potassium} kg/ha</td><th>Soil Moisture</th><td>${formData.soil_moisture} %</td></tr>
+          <tr><th>Organic Carbon</th><td>${formData.soil_organic_carbon} %</td><th>Soil Type</th><td>${formData.soil_type}</td></tr>
+        </table>
+
+        <h3>Scientific Model Benchmark Breakdown</h3>
+        <table>
+          <tr><th>Model Architecture</th><th>Type</th><th>Predicted Yield</th><th>R² Metric</th><th>MAE</th></tr>
+          ${(prediction.model_results || []).map((m: any) => `
+            <tr>
+              <td><strong>${m.model_name}</strong></td>
+              <td>${m.model_type}</td>
+              <td><strong>${m.predicted_yield} t/ha</strong></td>
+              <td>${m.r2}</td>
+              <td>${m.mae}</td>
+            </tr>
+          `).join('')}
+        </table>
+
+        <h3>Agronomic Advisory (FAO-56 & ICAR Guidelines)</h3>
+        <div class="card" style="font-size:12px;">
+          <p><strong>Soil pH Status:</strong> ${prediction.agronomic_insights?.ph_status?.status || 'Evaluated'} — ${prediction.agronomic_insights?.ph_status?.action || 'Optimal'}</p>
+          <p><strong>Irrigation Need:</strong> ${prediction.agronomic_insights?.water_status?.irrigation_need || 'Evaluated'}</p>
+          <p><strong>Critical Growth Stage:</strong> ${prediction.agronomic_insights?.critical_growth_stage || 'Flowering & Grain Filling'}</p>
+          <p><strong>Citation Source:</strong> ${prediction.agronomic_insights?.agronomic_citation || 'FAO Irrigation and Drainage Paper 56'}</p>
+        </div>
+
+        <div class="footer">
+          QuantumYield AI • Official CSE Capstone Research Project • Predict Better. Farm Smarter. Grow More.
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 500);
   };
 
   const comparisonChartData = prediction?.model_results?.map((m: any) => ({
@@ -503,9 +609,21 @@ export default function Predict() {
               {/* Primary Yield Banner Card */}
               <div className="rounded-2xl border border-emerald-300/80 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 p-6 shadow-md dark:border-emerald-800/60 dark:from-[#0f241a] dark:to-[#08150f]">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-                    Predicted Harvest Yield
-                  </span>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
+                      Predicted Harvest Yield
+                    </span>
+                    {engineSource === 'client' && (
+                      <span className="ml-2 inline-block rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60">
+                        Client Agronomic Engine
+                      </span>
+                    )}
+                    {engineSource === 'backend' && (
+                      <span className="ml-2 inline-block rounded-md bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/60">
+                        Qiskit Backend
+                      </span>
+                    )}
+                  </div>
                   <span className="rounded-full bg-emerald-200/60 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-300">
                     {prediction.selected_model}
                   </span>
@@ -531,14 +649,13 @@ export default function Predict() {
                 </div>
 
                 <div className="mt-4 flex gap-2">
-                  <a
-                    href={`http://localhost:8000/api/predictions/${prediction.id}/export/pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-700 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600 transition-colors"
+                  <button
+                    type="button"
+                    onClick={handlePrintReport}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-700 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600 transition-colors cursor-pointer"
                   >
-                    <Download className="h-3.5 w-3.5" /> Download PDF Report
-                  </a>
+                    <Download className="h-3.5 w-3.5" /> Download / Print PDF Report
+                  </button>
                 </div>
               </div>
 
