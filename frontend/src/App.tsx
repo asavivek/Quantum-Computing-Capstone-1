@@ -28,12 +28,23 @@ function App() {
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem('token');
+      const activeUserStr = localStorage.getItem('active_user');
       if (token) {
         try {
           const { data } = await api.get('/auth/me');
           setUser(data);
+          localStorage.setItem('active_user', JSON.stringify(data));
         } catch (e) {
-          localStorage.removeItem('token');
+          if (activeUserStr) {
+            try {
+              setUser(JSON.parse(activeUserStr));
+            } catch {
+              localStorage.removeItem('token');
+              localStorage.removeItem('active_user');
+            }
+          } else {
+            localStorage.removeItem('token');
+          }
         }
       }
       setLoading(false);
@@ -56,7 +67,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={!user ? <Auth /> : <Navigate to="/dashboard" />} />
+            <Route path="/auth" element={<Auth />} />
             
             <Route path="/" element={user ? <Layout /> : <Navigate to="/auth" />}>
               <Route path="dashboard" element={<Dashboard />} />

@@ -53,19 +53,25 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link
-              to="/auth"
-              className="text-sm font-semibold text-slate-600 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-400"
+              to="/auth?mode=login"
+              className="text-sm font-semibold text-slate-700 hover:text-emerald-700 dark:text-slate-200 dark:hover:text-emerald-400 px-3 py-2 transition-colors"
             >
               Sign In
+            </Link>
+            <Link
+              to="/auth?mode=signup"
+              className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-all"
+            >
+              Sign Up
             </Link>
             <button
               onClick={handleLaunchDemo}
               disabled={demoLoading}
-              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-700/20 hover:bg-emerald-500 transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-700/20 hover:bg-emerald-500 transition-all cursor-pointer"
             >
-              {demoLoading ? 'Launching...' : 'Launch Dashboard'}
+              {demoLoading ? 'Launching...' : 'Quick Demo'}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -92,21 +98,28 @@ export default function Landing() {
             classical gradient boosting ensembles, and genuine Qiskit quantum fidelity-kernel regression.
           </p>
 
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <div className="mt-10 flex flex-wrap justify-center items-center gap-4">
+            <Link
+              to="/auth?mode=signup"
+              className="flex items-center gap-2.5 rounded-xl bg-emerald-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-emerald-700/30 hover:bg-emerald-500 transition-all"
+            >
+              <Sparkles className="h-5 w-5" />
+              Sign Up / Register
+            </Link>
+            <Link
+              to="/auth?mode=login"
+              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3.5 text-base font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-emerald-900/40 dark:bg-[#0f1d17] dark:text-slate-200 dark:hover:bg-emerald-950/40 transition-all"
+            >
+              Sign In
+            </Link>
             <button
               onClick={handleLaunchDemo}
               disabled={demoLoading}
-              className="flex items-center gap-2.5 rounded-xl bg-emerald-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-emerald-700/30 hover:bg-emerald-500 transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl border border-dashed border-emerald-600/40 bg-emerald-500/10 px-5 py-3.5 text-base font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20 transition-all cursor-pointer"
             >
               <PlayCircle className="h-5 w-5" />
-              Launch Interactive Platform
+              Instant Demo Access
             </button>
-            <Link
-              to="/auth"
-              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3.5 text-base font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-emerald-900/40 dark:bg-[#0f1d17] dark:text-slate-200 dark:hover:bg-emerald-950/40 transition-all"
-            >
-              Create Researcher Account
-            </Link>
           </div>
 
           {/* Interactive Quantum-Agriculture Hero Schematic */}

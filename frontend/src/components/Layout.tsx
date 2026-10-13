@@ -27,8 +27,9 @@ export default function Layout() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('active_user');
     setUser(null);
-    navigate('/auth');
+    navigate('/auth?mode=login');
   };
 
   const navSections = [
